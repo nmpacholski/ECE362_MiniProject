@@ -31,63 +31,52 @@ int read_rows()
     return (~GPIOC->IDR) & 0xf;
 }
 
-void move_ship(void)
+int read_rows(void)
 {
-    // Draw the background.
-    LCD_DrawPicture(0,0,&background);
-    int x = 120;
-    int y = 160;
-    update2(x,y);
     for(;;)
         for(int c=0; c<4; c++) {
-            int dx=0;
-            int dy=0;
             drive_column(c);
             nano_wait(1000000); // wait 1 ms
             int r = read_rows();
             if (c==3) { // leftmost column
                 if (r & 8) { // '1'
-                    dy -= 1; dx -= 1;
+                    key = '1';
+					break;
                 }
                 if (r & 4) { // '4'
-                    dx -= 1;
+                    key = '4';
+					break;
                 }
                 if (r & 2) { // '7'
-                    dy += 1; dx -= 1;
+                    key = '7';
+					break;
                 }
             } else if (c == 2) { // column 2
                 if (r & 8) { // '2'
-                    dy -= 1;
+                    key = '2';
+					break;
                 }
                 if (r & 4) { // '5' re-center the ball
-                    erase(x,y);
-                    dx = 1; dy = 1;
-                    x = 119; y = 159;
+                    key = '5';
+					break;
                 }
                 if (r & 2) { // '8'
-                    dy += 1;
+                    key = '5';
+					break;
                 }
             } else if (c == 1) { // column 3
                 if (r & 8) { // '3'
-                    dy -= 1; dx += 1;
+                    key = '3';
+					break;
                 }
                 if (r & 4) { // '6'
-                    dx += 1;
+                    key = '6';
+					break;
                 }
                 if (r & 2) { // '9'
-                    dy += 1; dx += 1;
+                    key = '9';
+					break;
                 }
             }
-            if (dx !=0 || dy != 0) {
-                x += dx;
-                y += dy;
-                update2(x,y);
-            }
         }
-}
-
-int main(void)
-{
-    setup_buttons();
-    move_ship();
 }
