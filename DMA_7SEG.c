@@ -51,30 +51,10 @@ void enable_dma(void)
     DMA1_Channel5->CCR |= DMA_CCR_EN;
 }
 
-void print(const char str[])
-{
-    const char *p = str;
-    for(int i=0; i<8; i++) {
-        if (*p == '\0') {
-            msg[i] = (i<<8);
-        } else {
-            msg[i] = (i<<8) | font[*p & 0x7f] | (*p & 0x80);
-            p++;
-        }
-    }
-}
-
-int score = 0;
 int main(void)
 {
     print("Score  0");
     init_spi2();
     setup_dma();
     enable_dma();
-    for (;;) {
-        score += 1;
-        char buf[9];
-        snprintf(buf, 9, "Score% 3d", score);
-        print(buf);
-    }
 }
