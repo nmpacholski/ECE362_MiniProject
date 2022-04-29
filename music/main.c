@@ -19,6 +19,7 @@ struct {
     int     offset;
 } voice[VOICES];
 
+//temporary interrupt for death
 void init_EXTI(void){
 	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
 	GPIOA->MODER &= ~GPIO_MODER_MODER0;
@@ -33,18 +34,14 @@ void init_EXTI(void){
 
 void EXTI0_1_IRQHandler(void){
 	EXTI->PR |= EXTI_PR_PR0;
-	GPIOC->ODR |= GPIO_ODR_6;
+	//move to death function
 	MIDI_Player *mp2 = midi_init(death);
 	while(mp2->nexttick != MAXTICKS){};
 }
 
-
-
-// We'll use the Timer 6 IRQ to recompute samples and feed those
-// samples into the DAC.
+// Use Tim6 to feed samples into DAC
 void TIM6_DAC_IRQHandler(void)
 {
-	//TODO: update interrupt flag
 	TIM6->SR &= ~TIM_SR_UIF;
 
     int sample = 0;
@@ -64,11 +61,9 @@ void TIM6_DAC_IRQHandler(void)
     DAC->DHR12R1 = sample;
 }
 
-// Initialize the DAC so that it can output analog samples
-// on PA4.  Configure it to be triggered by TIM6 TRGO.
+// Initialize the DAC so that it can output analog samples on PA4.
 void init_dac(void)
 {
-    // TODO: you fill this in.
 	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
 	GPIOA->MODER |= GPIO_MODER_MODER4;
 	RCC->APB1ENR |= RCC_APB1ENR_DACEN;
@@ -80,13 +75,8 @@ void init_dac(void)
 }
 
 // Initialize Timer 6 so that it calls TIM6_DAC_IRQHandler
-// at exactly RATE times per second.  You'll need to select
-// a PSC value and then do some math on the system clock rate
-// to determine the value to set for ARR.  Set it to trigger
-// the DAC by enabling the Update Trigger in the CR2 MMS field.
 void init_tim6(void)
 {
-    // TODO: you fill this in.
 	RCC->APB1ENR |= RCC_APB1ENR_TIM6EN;
 	TIM6->PSC = 1-1;
 	TIM6->ARR = 48000000 / ((TIM6->PSC+1) * RATE) - 1;
@@ -96,7 +86,6 @@ void init_tim6(void)
 	NVIC->ISER[0] |= 1<<TIM6_DAC_IRQn;
 }
 
-// Find the voice current playing a note, and turn it off.
 void note_off(int time, int chan, int key, int velo)
 {
     int n;
@@ -111,7 +100,6 @@ void note_off(int time, int chan, int key, int velo)
     }
 }
 
-// Find an unused voice, and use it to play a note.
 void note_on(int time, int chan, int key, int velo)
 {
     if (velo == 0) {
@@ -134,30 +122,18 @@ void note_on(int time, int chan, int key, int velo)
 
 void set_tempo(int time, int value, const MIDI_Header *hdr)
 {
-    // This assumes that the TIM2 prescaler divides by 48.
-    // It sets the timer to produce an interrupt every N
-    // microseconds, where N is the new tempo (value) divided by
-    // the number of divisions per beat specified in the MIDI file header.
     TIM2->ARR = value/hdr->divisions - 1;
 }
 
+//sends music notes to DAC
 void TIM2_IRQHandler(void)
 {
-    // TODO: Remember to acknowledge the interrupt right here!
 	TIM2->SR &= ~TIM_SR_UIF;
     midi_play();
 }
 
-// Configure timer 2 so that it invokes the Update interrupt
-// every n microseconds.  To do so, set the prescaler to divide
-// by 48.  Then the CNT will count microseconds up to the ARR value.
-// Basically ARR = n-1
-// Set the ARPE bit in the CR1 so that the timer waits until the next
-// update before changing the effective ARR value.
-// Call NVIC_SetPriority() to set a low priority for Timer 2 interrupt.
-// See the lab 6 text to understand how to do so.
+// Initialize Timer 2
 void init_tim2(int n) {
-    // TODO: you fill this in.
 	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
 	TIM2->ARR = n-1;
 	TIM2->PSC = 48-1;
@@ -173,16 +149,16 @@ int main(void)
     init_dac();
     init_tim6();
     init_EXTI();
+    //priority: DAC > MIDI > Death SFX
     NVIC_SetPriority(TIM6_DAC_IRQn, 0);
     NVIC_SetPriority(TIM2_IRQn, 1);
     NVIC_SetPriority(EXTI0_1_IRQn, 2);
+    //start playing after game start
     MIDI_Player *mp1 = midi_init(background);
-    // The default rate for a MIDI file is 2 beats per second
-    // with 48 ticks per beat.  That's 500000/48 microseconds.
     init_tim2(10417);
     for(;;) {
         asm("wfi");
-        // If we hit the end of the MIDI file, start over.
+        // loop background music
         if (mp1->nexttick == MAXTICKS)
         	mp1 = midi_init(background);
     }
